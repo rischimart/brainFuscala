@@ -14,41 +14,145 @@
 
 package set1
 import scala.util.parsing.combinator._
+import scalaz._
 
-object Calculator extends RegexParsers {
-def number: Parser[Double] = """\d+(\.\d*)?""".r ^^ { _.toDouble }
-def factor: Parser[Double] = number | "(" ~> expr <~ ")"
-def term  : Parser[Double] = factor ~ rep( "*" ~ factor | "/" ~ factor) ^^ {
-  case number ~ list => (number /: list) {
-    case (x, "*" ~ y) => x * y
-    case (x, "/" ~ y) => x / y
+/*
+data Cmd = IncDataPtr Int
+| DecDataPtr Int
+| IncByte Int
+| DecByte Int
+| OutputChar
+| ReadInputByte
+| Seq Cmd Cmd
+| Loop Cmd
+| Error String
+deriving (Show) 
+*/
+class Environment(userInput :List[Char]) {
+  private var memory : Vector[Int] = Vector(0, 0, 0, 0, 0)
+  private var dataPtr : Int = 0
+  private var remainingInput : List[Char] = userInput
+  
+  def updateMemory(index : Int, delta :Int) {
+    
+  }
+  
+  def moveDataPointer(delta : Int) {
+    
+  }
+  
+  def readInput : Char = {
+    val nextChar = remainingInput.head
+    remainingInput = remainingInput.tail
+    nextChar
+  }
+  
+  def printChar : Unit = {
+    print(memory(dataPtr))
   }
 }
-def expr  : Parser[Double] = term ~ rep("+" ~ log(term)("Plus term") | "-" ~ log(term)("Minus term")) ^^ {
-  case number ~ list => list.foldLeft(number) { // same as before, using alternate name for /:
-    case (x, "+" ~ y) => x + y
-    case (x, "-" ~ y) => x - y
+
+/*
+type Memory = List[Int]
+type DataPointer = Int
+type UserInput = [Char]
+type Enviroment = (Memory, DataPointer, UserInput)
+*/
+sealed trait Command
+case class IncDataPtr(step : Int) extends Command
+case class DecDataPtr(step : Int) extends Command
+case class IncByte(value : Int) extends Command
+case class DecByte(value: Int) extends Command
+case class OutputChar() extends Command
+case class ReadInputByte() extends Command
+case class Seq(head : Command, tail : Command) extends Command
+case class Loop(body : Command) extends Command
+case class Error(msg : String) extends Command
+case class None() extends Command
+
+
+object BrainFParser extends RegexParsers {
+  //why "IncDataPtr(_.length())" does not compile?
+  def parseIncDataPtr : Parser[Command] = """>+""".r ^^ { (s : String) => IncDataPtr(s.length()) }
+  def parseDecDataPtr : Parser[Command] = """<+""".r ^^ { (s : String) => DecDataPtr(s.length()) }
+  def parseIncByte : Parser[Command] = """(\+)+""".r ^^ {(s : String) => IncByte(s.length())}
+  def parseDecByte : Parser[Command] = """(-)+""".r ^^ {(s : String) => DecByte(s.length())}
+  def parseOutputChar : Parser[Command] = """\.""" .r ^^ {(s : String) => OutputChar()}
+  def parseRead : Parser[Command] = """,""".r ^^ {(s : String) => ReadInputByte()}
+ 
+  def parseLoop : Parser[Command] = "[" ~> parseCommands <~ "]" ^^ {Loop(_)}
+    
+  
+  def parseCommand : Parser[Command] = parseIncDataPtr | parseDecDataPtr | parseIncByte | parseDecByte | parseOutputChar | parseRead | parseLoop
+  def parseDelimiters : Parser[String] = """[^><\+-\.,\[\]]*""".r 
+  def parseCommands : Parser[Command] = rep(parseDelimiters ~> parseCommand) ^^ {buildSeq(_)}
+  
+  def apply(input: String): Command = parseAll(parseCommands, input) match {
+    case Success(result, _) => result
+    case failure : NoSuccess => scala.sys.error(failure.msg)
+  }
+  
+  //use foldRight?
+  def buildSeq(commands : List[Command]) : Command = {
+    commands match {
+      case Nil => None()
+      case x :: xs => Seq(x, buildSeq(xs))
+    }
   }
 }
 
-def apply(input: String): Double = parseAll(expr, input) match {
-  case Success(result, _) => result
-  case failure : NoSuccess => scala.sys.error(failure.msg)
+
+class BrainFInterpreter(program : Command, environment : Environment) {
+  var env = environment
+  def interp(command : Command) : Unit = {
+    command match {
+      case IncDataPtr(steps) => {
+        
+      } 
+      case DecDataPtr(steps) => {
+        
+      }
+      
+      case IncByte(value) => {
+        
+      }
+      
+      case DecByte(value) => {
+        
+      }
+      
+      case OutputChar() => {
+        
+      }
+      
+      case ReadInputByte() => {
+        
+      }
+      
+      case Seq(h, t) => {
+        interp(h)
+        interp(t)
+      }
+      
+      case Loop(body) => {
+        
+      }
+      
+      case Error(err) => {
+        
+      }
+      
+      case None() => {
+        ()
+      }
+    }
+  }
 }
 
-     class SimpleParser extends RegexParsers {
-
-       def word: Parser[String]   = """[a-z]+""".r       ^^ { _.toString }
-
-       def number: Parser[Int]    = """(0|[1-9]\d*)""".r ^^ { _.toInt }
-
-       def freq: Parser[WordFreq] = word ~ number        ^^ { case wd ~ fr => WordFreq(wd,fr) }
-
-     } 
-}
 
 object Main {
   def main(args : Array[String]) : Unit = {
-    println(Calculator("1 + 3 * 9"))
+    //>>,[>>,]<< [[-<+<]>[>[>>]<[.[-]<[[>>+<<-]<]>>]>]<<]
+    println(BrainFParser(">>,[>>,]<< [[-<+<]>[>[>>]<[.[-]<[[>>+<<-]<]>>]>]<<]"))
   }
 }
