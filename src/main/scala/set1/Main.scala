@@ -19,8 +19,7 @@ class Environment(userInput :List[Char]) {
   private var remainingInput : List[Char] = userInput
   
   private def expandMemory {
-    val oldLen = memory.length
-    memory = memory.padTo(oldLen * 2, 0)
+    memory = memory.padTo(memory.length * 2, 0)
   }
   
   private def store(value : Int) = {
@@ -99,7 +98,7 @@ object BrainFParser extends RegexParsers {
   
   def parseCommand : Parser[Command] = parseIncDataPtr | parseDecDataPtr | parseIncByte | parseDecByte | parseOutputChar | parseRead | parseLoop
   def parseDelimiters : Parser[String] = """[^><\+-\.,\[\]]*""".r 
-  def parseCommands : Parser[Command] = rep(parseDelimiters ~> parseCommand) ^^ {buildSeq(_)}
+  def parseCommands : Parser[Command] = rep(parseDelimiters ~> parseCommand) <~ parseDelimiters ^^ {buildSeq(_)}
   
   def apply(input: String): Command = parseAll(parseCommands, input) match {
     case Success(result, _) => result
