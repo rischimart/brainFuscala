@@ -9,9 +9,10 @@
 ] If the byte pointed by data pointer is non-zero, then move instruction pointer to previous matching '[' command, otherwise to next command.
 
 * */ 
-package set1
+package probablyfuckedup
 import scala.util.parsing.combinator._
 import scalaz._
+import scala.Vector
 
 class Environment(userInput :List[Char]) {
   private var memory : Vector[Int] = Vector(0, 0, 0, 0, 0)
@@ -19,7 +20,7 @@ class Environment(userInput :List[Char]) {
   private var remainingInput : List[Char] = userInput
   
   private def expandMemory {
-    memory = memory.padTo(memory.length * 2, 0)
+    memory = memory padTo(memory.length * 2, 0)
   }
   
   private def store(value : Int) = {
@@ -83,7 +84,7 @@ case class Loop(body : Command) extends Command
 case class Error(msg : String) extends Command
 case class Null() extends Command
 
-
+//microt
 object BrainFParser extends RegexParsers {
   //why "IncDataPtr(_.length())" does not compile?
   def parseIncDataPtr : Parser[Command] = """>+""".r ^^ { (s : String) => IncDataPtr(s.length()) }
@@ -106,6 +107,14 @@ object BrainFParser extends RegexParsers {
   }
   
   //use foldRight?
+  /*
+  def buildseq(commands : List[Command]) : Command = {
+    commands.foldRight(Null())((h, t) => Seq(h, t))  
+  }
+  */ 
+  
+  
+  
   def buildSeq(commands : List[Command]) : Command = {
     commands match {
       case Nil => Null()
@@ -114,6 +123,11 @@ object BrainFParser extends RegexParsers {
   }
 }
 
+/*
+case class foo(ss : , ff : Int) {
+  copy(ss = 23)
+}
+*/
 
 class BrainFInterpreter(program : Command, environment : Environment) {
   var env = environment
