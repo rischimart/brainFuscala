@@ -9,7 +9,8 @@ object IOMonad {
     def flatMap[B](f : A => IO[B]) : IO[B] = Sequence(self, f)
     def map[B](f : A => B) : IO[B] = flatMap((unit[B] _) compose f)
     //def map[B](f : A => B) : IO[B] = flatMap(f andThen (unit _))
-    def runIO() : A = {
+    @annotation.tailrec
+    final def runIO() : A = {
       self match {
         case Return(c) => c
         case Continue(cont) => (cont()).runIO()
@@ -43,6 +44,6 @@ object main {
   def wrap(c : Char) : IO[Char] = c.point[IO]
   def main(args : Array[String]) : Unit = {
     val u = printChar('c') >> printChar('u')
-    //u.runIO()
+    u.runIO()
   }
 }
