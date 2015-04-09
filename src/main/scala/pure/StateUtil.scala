@@ -29,32 +29,15 @@ object StateUtil {
   
   def put[S](s : S) : State[S, Unit] = StateM(_ => ((), s))
   def get[S]: State[S, S] = StateM(s => (s, s))
-  /*
-   * lift :: m a -> (StateT s) m a
-   * lift m = 
-   */
-  
-  /*
-   * m >>= f = stateT $ \s -> do
-   *   (a, s') <- runStateT m s
-   *   runStateT (f a) s'  
-   */
-   //implicit def StateTMonad[S, M[_]](implicit M0 : Monad[M]) = new StateTransMonad[S, M] {     
-     // implicit def MM: Monad[M] = M0
-   //}
-  
-   implicit def StateTransMonad[S, M[_]](implicit m : Monad[M]) = new Monad[({type λ[A] = StateT[S, M, A]})#λ] {
-    //def ret[A](a : => A)(implicit m : Monad[M]) : StateT[S, M, A]= StateTrans(s => m.point(a, s))
-    //implicit def MM: Monad[M] = m
 
+  
+  implicit def StateTransMonad[S, M[_]](implicit m : Monad[M]) = new Monad[({type λ[A] = StateT[S, M, A]})#λ] {
     def point[A](a : => A) : StateT[S, M, A] = StateTrans(s => m.point(a, s))
     def bind[A, B](m : StateT[S, M, A])(f : A => StateT[S, M, B]) : StateT[S, M, B] = m flatMap f
   }
   
   sealed trait StateT[S, M[_], A] { self =>
     implicit def M: Monad[M]
-   
-    
     def runStateT(s : S) : M[(A, S)]
     def flatMap[B](f : A => StateT[S, M, B]) : StateT[S, M, B] = {
       val stateTFun : S => M[(B, S)] = s => {

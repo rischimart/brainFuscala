@@ -84,9 +84,7 @@ case class Loop(body : Command) extends Command
 case class Error(msg : String) extends Command
 case class Null() extends Command
 
-//microt
 object BrainFParser extends RegexParsers {
-  //why "IncDataPtr(_.length())" does not compile?
   def parseIncDataPtr : Parser[Command] = """>+""".r ^^ { (s : String) => IncDataPtr(s.length()) }
   def parseDecDataPtr : Parser[Command] = """<+""".r ^^ { (s : String) => DecDataPtr(s.length()) }
   def parseIncByte : Parser[Command] = """(\+)+""".r ^^ {(s : String) => IncByte(s.length())}
@@ -106,15 +104,6 @@ object BrainFParser extends RegexParsers {
     case failure : NoSuccess => scala.sys.error(failure.msg)
   }
   
-  //use foldRight?
-  /*
-  def buildseq(commands : List[Command]) : Command = {
-    commands.foldRight(Null())((h, t) => Seq(h, t))  
-  }
-  */ 
-  
-  
-  
   def buildSeq(commands : List[Command]) : Command = {
     commands match {
       case Nil => Null()
@@ -122,12 +111,6 @@ object BrainFParser extends RegexParsers {
     }
   }
 }
-
-/*
-case class foo(ss : , ff : Int) {
-  copy(ss = 23)
-}
-*/
 
 class BrainFInterpreter(program : Command, environment : Environment) {
   var env = environment
