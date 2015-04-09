@@ -2,7 +2,7 @@ package pure
 
 import scalaz._, Scalaz._
 
-object IOMonad {
+object IOUtil {
   sealed trait IO[A] { self =>
     //val foo = unit[B]
     def unit[A](a : A) : IO[A] = Return(a)
@@ -39,7 +39,7 @@ object IOMonad {
 
 }
 object main {
-  import pure.IOMonad._
+  import pure.IOUtil  ._
   def printChar(c : Char) : IO[Unit] = Continue(() => IO {print(c)})
   def wrap(c : Char) : IO[Char] = c.point[IO]
   def main(args : Array[String]) : Unit = {
