@@ -13,65 +13,10 @@ package probablyfuckedup
 import scala.util.parsing.combinator._
 import scalaz._
 import scala.Vector
+import pure.IOUtil._
+import pure.StateTransUtil._
 
-class Environment(userInput :List[Char]) {
-  private var memory : Vector[Int] = Vector(0, 0, 0, 0, 0)
-  private var dataPtr : Int = 0
-  private var remainingInput : List[Char] = userInput
-  
-  private def expandMemory {
-    memory = memory padTo(memory.length * 2, 0)
-  }
-  
-  private def store(value : Int) = {
-    memory = memory updated(dataPtr, value)
-  }
-  
-  def updateMemory(delta :Int) {
-    if (dataPtr >= memory.length) expandMemory
-    var newVal = memory(dataPtr) + delta
-    if (newVal > 255) newVal = newVal % 255 
-    if (newVal < 0) {
-      while (newVal < 0) newVal += 256
-    } 
 
-    memory = memory updated(dataPtr, newVal)
-  }
-  
-  def moveDataPointer(delta : Int) {
-    dataPtr += delta
-    if (dataPtr < 0) dataPtr = 0
-    else {
-      if (dataPtr >= memory.length) expandMemory
-    }
-  }
-  
-  def readInput : Unit = {
-    val nextChar = remainingInput.headOption
-    nextChar match {
-      case Some(c) => {
-        remainingInput = remainingInput.tail
-        store(c)
-      }
-      case _ => ()
-    }
-  }
-  
-  def printChar : Unit = {
-    print(memory(dataPtr).toChar)
-  }
-  
-  def shouldExit : Boolean = {
-    memory(dataPtr) == 0
-  }
-}
-
-/*
-type Memory = List[Int]
-type DataPointer = Int
-type UserInput = [Char]
-type Enviroment = (Memory, DataPointer, UserInput)
-*/
 sealed trait Command
 case class IncDataPtr(step : Int) extends Command
 case class DecDataPtr(step : Int) extends Command
@@ -112,30 +57,81 @@ object BrainFParser extends RegexParsers {
   }
 }
 
-class BrainFInterpreter(program : Command, environment : Environment) {
-  var env = environment
-  def interp(command : Command) : Unit = {
-    command match {
-      case IncDataPtr(steps) => env moveDataPointer(steps)
-      case DecDataPtr(steps) => env moveDataPointer(-steps)
-      case IncByte(delta) => env updateMemory(delta)
-      case DecByte(delta) => env updateMemory(-delta)
-      case OutputChar() => env printChar
-      case ReadInputByte() => env readInput
-      case Seq(h, t) => {
-        interp(h)
-        interp(t)
-      }
-      case l @ Loop(body) => {
-        if (env shouldExit) ()
-        else interp(Seq(body, l))
-      }
-      case Error(err) => println(err)
-      case Null() => ()
+class BrainFInterpreter(program : Command) {
+  type Memory = Vector[Int]
+  type DataPointer = Int
+  type UserInput = Vector[Char]
+  
+  type Environment = (Memory, DataPointer, UserInput)
+  type EvalResult = StateTrans[Environment, IO, Unit]
+  
+  def updateMemory(memory: Memory, dataPtr: DataPointer, delta: Int): Memory = {
+    var newVal = memory(dataPtr) + delta
+    if (newVal > 255) newVal = newVal % 255 
+    if (newVal < 0) {
+      while (newVal < 0) newVal += 256
+    } 
+    memory.updated(dataPtr, newVal)
+  }
+  
+  def moveDataPointer(env: Environment, delta: Int): Environment = {
+    val(mem, dp, inpt) = env
+    val newDp = if (dp + delta < 0) 0 else dp + delta
+    val len = mem.length
+    val newMem = if (newDp < len) mem else mem.padTo(len * 2, 0)
+    (newMem, newDp, inpt)
+  }
+  
+  def printChar(c : Char) : IO[Unit] = Continue(() => Return(print(c)))
+  
+  def printStr(str : String) : IO[Unit] = Continue(() => Return(print(str)))
+  
+  def readUserInput(env: Environment): Environment = {
+    val(mem, dp, inpt) = env
+    if (inpt.isEmpty) env
+    else {
+      val newMem = mem.updated(dp, inpt.head.toInt)
+      (newMem, dp, inpt.tail)
     }
   }
   
-  //def apply(input: Command): Unit = interp(input)
+  def shouldBreak(env: Environment): Boolean = {
+    val(mem, dp, _) = env
+    return mem(dp) == 0
+  }
+    
+  def interp(command : Command) : EvalResult = {
+    command match {
+      case IncDataPtr(steps) =>
+          get[Environment, IO] flatMap { env => 
+            put[Environment, IO](moveDataPointer(env, steps))
+          }
+      case DecDataPtr(steps) => interp(IncDataPtr(-steps))
+      case IncByte(delta) => 
+          get[Environment, IO] flatMap { case (m, dp, us) => 
+            val nm = updateMemory(m, dp, delta)
+            put[Environment, IO](nm, dp, us)
+          }  
+      case DecByte(delta) => interp(IncByte(-delta))
+      case OutputChar() => 
+          get[Environment, IO] flatMap { case (m, dp, us) =>  
+            val ch = m(dp).toChar
+            lift[Environment, IO, Unit](printChar(ch))
+          }
+      case ReadInputByte() =>
+          get[Environment, IO] flatMap { env =>  
+            val newEnv = readUserInput(env)
+            put[Environment, IO](newEnv)
+          }
+      case Seq(h, t) => interp(h) flatMap { _ => interp(t) }     
+      case l @ Loop(body) => 
+        get[Environment, IO] flatMap 
+        { env =>if (shouldBreak(env)) StateTransMonad[Environment, IO](IOMonad)(()) 
+                else interp(Seq(body, l)) }
+      case Error(err) => lift[Environment, IO, Unit](printStr(err))
+      case Null() => StateTransMonad[Environment, IO](IOMonad)(()) 
+    }
+  }
 }
 
 object Main {
@@ -163,9 +159,11 @@ object Main {
 > + .                   print '!'
 """
     val program2 = ">>,[>>,]<< [[-<+<]>[>[>>]<[.[-]<[[>>+<<-]<]>>]>]<<]"
-    val parsedCmds = BrainFParser(program2)
+    val parsedCmds = BrainFParser(program)
     //println(parsedCmds)
-    val interpreter = new BrainFInterpreter(parsedCmds, new Environment("84732167".toList))
-    interpreter.interp(parsedCmds)
+    val interpreter = new BrainFInterpreter(parsedCmds)
+    val initMem = Vector(0, 0, 0, 0)
+    val userInput = "84732167".toVector
+    interpreter.interp(parsedCmds).runStateT((initMem, 0, userInput)).runIO()
   }
 }
