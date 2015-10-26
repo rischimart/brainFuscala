@@ -97,7 +97,7 @@ class BrainFInterpreter(program : Command) {
   
   def shouldBreak(env: Environment): Boolean = {
     val(mem, dp, _) = env
-    return mem(dp) == 0
+    mem(dp) == 0
   }
     
   def interp(command : Command) : EvalResult = {
@@ -159,11 +159,11 @@ object Main {
 > + .                   print '!'
 """
     val program2 = ">>,[>>,]<< [[-<+<]>[>[>>]<[.[-]<[[>>+<<-]<]>>]>]<<]"
-    val parsedCmds = BrainFParser(program)
+    val parsedCmds = BrainFParser(program2)
     //println(parsedCmds)
     val interpreter = new BrainFInterpreter(parsedCmds)
     val initMem = Vector(0, 0, 0, 0)
-    val userInput = "84732167".toVector
+    val userInput = "8479532167".toVector
     interpreter.interp(parsedCmds).runStateT((initMem, 0, userInput)).runIO()
   }
 }
