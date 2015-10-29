@@ -1,2 +1,2 @@
 # brainFuscala
-An Interpreter for Brainfuck written in Scala. 
+An interpreter for Brainfuck written in functional Scala using monads and monad transformers. 
